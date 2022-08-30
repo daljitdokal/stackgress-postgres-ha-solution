@@ -70,7 +70,7 @@ oc delete mutatingwebhookconfigurations.admissionregistration.k8s.io stackgres-o
 oc get crds -n ${namespace} -o name | egrep stackgres.io | xargs kubectl delete
 ```
 
-### Stackgres Database HA Cluster
+## Stackgres Database HA Cluster
 
 To add only required permissions to a service account, please assign following `ClusterRole` to `service account`.
 
