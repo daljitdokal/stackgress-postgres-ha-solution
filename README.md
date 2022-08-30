@@ -180,3 +180,11 @@ oc --namespace ${namespace} --ignore-not-found=true delete sgpgconfigs postgresc
 ```
 
 
+# Known issue raised with `StackGres`
+
+I have raised an issue with `StackGres`: https://gitlab.com/ongresinc/stackgres/-/issues/1910
+
+**Summary:**
+Admin UI making too many xhr.js calls and stackgres-restapi pod unable to handle the requests. Start getting 500 Gateway time-out errors once there are  more that 4 pending 'can-i` jobs.
+
+
