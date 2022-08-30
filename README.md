@@ -72,11 +72,68 @@ oc get crds -n ${namespace} -o name | egrep stackgres.io | xargs kubectl delete
 
 ### Stackgres Database HA Cluster
 
-Please update the variable values:
+To add only required permissions to a service account, please assign following `ClusterRole` to `service account`.
+
+Create `ClusterRole`:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: stackgres-admin
+rules:
+- apiGroups: [""]
+  resources:
+    - namespaces
+    - pods
+    - secrets
+  verbs: ["get", "list"]
+- apiGroups: ["storage.k8s.io"]
+  resources:
+    - storageclasses
+  verbs: ["get", "list"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources:
+    - customresourcedefinitions
+  verbs: ["get", "list"]
+- apiGroups: ["stackgres.io"]
+  resources:
+    - sgclusters
+    - sgpgconfigs
+    - sgbackupconfigs
+    - sgbackups
+    - sgdistributedlogs
+    - sginstanceprofiles
+    - sgpoolconfigs
+    - sgscripts
+  verbs: ["get", "list", "create", "update", "patch", "delete"]
+```
+
+Assign `ClusterRole` to service account:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-sa-stackgres-admin
+  namespace: my-namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: stackgres-admin
+subjects:
+- kind: ServiceAccount
+  name: my-sa
+  namespace: my-namespace
+```
+
+Now we can use this service account in `CI/CD` pipelines for deplyment of each database cluster.
+
+**Deploy database cluster**
 
 ```bash
 export appName="mydb-postgres"
-export namespace="namespace"
+export namespace="my-namespace"
 export instances=3
 export dbName="mydb"
 export dbUserName="mydbuser"
