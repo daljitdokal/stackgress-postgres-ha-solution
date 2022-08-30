@@ -43,7 +43,7 @@ oc create ${namespace}
 
 # Deploy
 helm upgrade --install --namespace ${namespace} \
-    --set containerRegistry=nexus.cs.transpower.co.nz:5001 \
+    --set containerRegistry=containerRegistry \
     --set authentication.password=${password} \
     --set adminui.service.exposeHTTP=true \
     --set extensions.repositoryUrls[0]="" \
