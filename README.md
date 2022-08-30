@@ -23,7 +23,7 @@ mv  ~/tmp/stackgres-${latestVersion}/stackgres-k8s/install/helm/stackgres-cluste
 rm -rf ~/tmp/stackgres-${latestVersion}
 ```
 
-## Stackgres Operator
+# Stackgres Operator
 
 An Operator is a method of packaging, deploying and managing a Kubernetes application. Some applications, such as databases, required more hand-holding, and a cloud-native Postgres requires an operator to provide additional knowledge of how to maintain state and integrate all the components.
 
@@ -70,7 +70,7 @@ oc delete mutatingwebhookconfigurations.admissionregistration.k8s.io stackgres-o
 oc get crds -n ${namespace} -o name | egrep stackgres.io | xargs kubectl delete
 ```
 
-## Stackgres Database HA Cluster
+# Stackgres Database HA Cluster
 
 To add only required permissions to a service account, please assign following `ClusterRole` to `service account`.
 
