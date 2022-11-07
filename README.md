@@ -231,7 +231,7 @@ oc --namespace ${namespace} --ignore-not-found=true delete sgpgconfigs postgresc
 oc --namespace ${namespace} --ignore-not-found=true delete sgobjectstorages objectstorage-${appName}
 oc --namespace ${namespace} --ignore-not-found=true delete sgbackupconfigs sgbackupconfig-${appName}
 
-# oc get sgbackups -o name | grep ${appName} | xargs oc delete
+# oc --namespace ${namespace} get sgbackups -o name | grep ${appName} | xargs oc delete
 # oc --namespace ${namespace} get sginstanceprofile -o name | grep generated-from-default | xargs oc delete
 # oc --namespace ${namespace} get sgpgconfigs -o name | grep generated-from-default | xargs oc delete
 # oc --namespace ${namespace} get sgpoolconfigs -o name | grep generated-from-default | xargs oc delete
