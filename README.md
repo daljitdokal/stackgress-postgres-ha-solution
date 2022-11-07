@@ -141,28 +141,80 @@ export dbUserPass="pass"
 export version=latest
 export cpu=500m
 export memory=512Mi
+export backup_retention=3
+export backup_cronSchedule="*/30 * * * *" # every 30 minutes
+export backup_path_in_minio="/my-namespace"
+export restore_backup_name="" # leave it empty if restore is not required or set the value as example below
+# export restore_backup_name="mydb-postgres-2022-11-08-20-00-09" # i.e. oc get sgbackups -n ${namespace}
+# export setDate="2022-11-07T20:00:15.00Z" # "2022-11-08T20:00:09.00Z" # to restore data to specific date and time with WAL logs files.
 
+# Custom database name with user
 oc --namespace ${namespace} create secret generic create-${appName}-user \
     --from-literal=create-${appName}-user.sql="CREATE USER ${dbUserName} PASSWORD '${dbUserPass}';"
+
+# MinIO instance details for backups
+oc create -n ${namespace} secret generic minio-details \
+     --from-literal=accesskey="xxxxxx" \
+     --from-literal=secretkey="xxxxxx"
+
+export restore_script=""
+if [[ ${restore_backup_name} != "" ]]; then
+    export restore_script="--set cluster.initialData.restore.fromBackup.name=${restore_backup_name}"
+    #export restore_script="--set cluster.initialData.restore.fromBackup.name=${restore_backup_name} --set cluster.initialData.restore.fromBackup.pointInTimeRecovery.restoreToTimestamp=${setDate}"
+fi
 
 # Deploy
 helm upgrade --install --namespace ${namespace} \
     --set cluster.instances=${instances} \
     --set cluster.postgres.version=${version} \
     --set cluster.sgInstanceProfile=size-${appName} \
+    --set cluster.pods.disableMetricsExporter=true \
+    --set cluster.prometheusAutobind=false \
     --set instanceProfiles[0].name=size-${appName} \
     --set instanceProfiles[0].cpu=${cpu} \
     --set instanceProfiles[0].memory=${memory} \
-    --set cluster.pods.disableMetricsExporter=true \
     --set cluster.configurations.sgPostgresConfig=postgresconf-${appName} \
     --set cluster.configurations.sgPoolingConfig=pgbouncerconf-${appName} \
+    --set cluster.configurations.sgBackupConfig=sgbackupconfig-${appName} \
     --set cluster.managedSql.scripts[0].name=create-${appName}-user \
     --set cluster.managedSql.scripts[0].scriptFrom.secretKeyRef.name=create-${appName}-user \
     --set cluster.managedSql.scripts[0].scriptFrom.secretKeyRef.key=create-${appName}-user.sql \
     --set cluster.managedSql.scripts[1].name=create-${appName}-database \
     --set cluster.managedSql.scripts[1].script="CREATE DATABASE ${dbName} WITH OWNER ${dbUserName};" \
+    --set configurations.backupconfig.create=true \
+    --set configurations.backupconfig.baseBackups.retention=${backup_retention} \
+    --set configurations.backupconfig.baseBackups.cronSchedule="${backup_cronSchedule}" \
+    --set configurations.backupconfig.baseBackups.performance.maxNetworkBandwidth="26214400" \
+    --set configurations.backupconfig.baseBackups.performance.maxDiskBandwidth="52428800" \
+    --set configurations.backupconfig.baseBackups.performance.uploadDiskConcurrency=2 \
+    --set configurations.backupconfig.storage.s3Compatible.bucket="bucket-name" \ # minio bucket name i.e. us-east-1
+    --set configurations.backupconfig.storage.s3Compatible.region="region" \ # minio region i.e. us-east-1
+    --set configurations.backupconfig.storage.s3Compatible.endpoint="http://minio-instance-url.com" \
+    --set configurations.backupconfig.storage.s3Compatible.enablePathStyleAddressing=true \
+    --set configurations.backupconfig.storage.s3Compatible.awsCredentials.secretKeySelectors.accessKeyId.name="minio-details" \
+    --set configurations.backupconfig.storage.s3Compatible.awsCredentials.secretKeySelectors.accessKeyId.key="accesskey" \
+    --set configurations.backupconfig.storage.s3Compatible.awsCredentials.secretKeySelectors.secretAccessKey.name="minio-details" \
+    --set configurations.backupconfig.storage.s3Compatible.awsCredentials.secretKeySelectors.secretAccessKey.key="secretkey" \
+    --set configurations.backupconfig.storage.s3Compatible.path=${backup_path_in_minio} ${restore_script} \
     ${appName} ~/stackgress-postgres-ha-solution/stackgres-cluster/
 ```
+
+## Restore backup from another namespace
+
+```bash
+export source_backup_name="mydb-postgres-2022-11-08-20-00-09"
+export source_namespace="my-namespace"
+export target_namespace="new-namespace"
+
+# Import backup refrence to new namespace
+oc get sgbackup -n ${source_namespace} ${source_backup_name} -o json | jq '.metadata.namespace = "stackgres2" | .spec.sgCluster = "${target_namespace}." + .spec.sgCluster' | kubectl create -f -
+
+# View backup refence in target namespace
+oc get sgbackup -n ${target_namespace}
+
+# Now you shoud be able to restore backup to new namespace. Please update the `restore_backup_name` before you creating a new cluster in deplyment script.
+```
+
 
 #### How to delete
 
@@ -175,8 +227,14 @@ helm delete ${appName} -n ${namespace}
 oc --namespace ${namespace} --ignore-not-found=true delete secret create-${appName}-user
 oc --namespace ${namespace} --ignore-not-found=true delete sginstanceprofile size-${appName}
 oc --namespace ${namespace} --ignore-not-found=true delete sgpoolconfigs pgbouncerconf-${appName}
-oc --namespace ${namespace} --ignore-not-found=true delete sgscripts ${appName}-scripts
 oc --namespace ${namespace} --ignore-not-found=true delete sgpgconfigs postgresconf-${appName}
+oc --namespace ${namespace} --ignore-not-found=true delete sgobjectstorages objectstorage-${appName}
+oc --namespace ${namespace} --ignore-not-found=true delete sgbackupconfigs sgbackupconfig-${appName}
+
+# oc get sgbackups -o name | grep ${appName} | xargs oc delete
+# oc --namespace ${namespace} get sginstanceprofile -o name | grep generated-from-default | xargs oc delete
+# oc --namespace ${namespace} get sgpgconfigs -o name | grep generated-from-default | xargs oc delete
+# oc --namespace ${namespace} get sgpoolconfigs -o name | grep generated-from-default | xargs oc delete
 ```
 
 
