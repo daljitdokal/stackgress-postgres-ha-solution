@@ -9,7 +9,7 @@
 ```bash
 mkdir tmp
 cd tmp
-export latestVersion="1.3.0"
+export latestVersion="1.2.1"
 wget "https://gitlab.com/ongresinc/stackgres/-/archive/${latestVersion}/stackgres-${latestVersion}.zip"
 unzip "stackgres-${latestVersion}.zip"
 rm "stackgres-${latestVersion}.zip"
